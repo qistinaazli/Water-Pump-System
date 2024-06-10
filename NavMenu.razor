@@ -1,0 +1,55 @@
+﻿@inject IDBHelper dbhelper
+
+<MudNavMenu>
+    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Rounded.Home">Dashboard</MudNavLink>
+</MudNavMenu>
+
+
+@if (machine_Status.Is_Running == true)
+{
+    <div style="width: 700px; height: 450px; background-image: url('/images/waterpump.gif'); background-size: cover; background-position: center;"></div>
+}
+
+@if (machine_Status.Is_Running == false)
+{
+    <div style="width: 700px; height: 450px; background-image: url('/images/pump.png'); background-size: cover; background-position: center;"></div>
+}
+
+@code {
+    DbListener dbListener = new();
+    Machine_Status machine_Status = new();
+
+	protected override async Task OnInitializedAsync()
+	{
+		machine_Status = (await dbhelper.Fetch<Machine_Status>("SELECT * FROM machine_status WHERE mach_id =1; ")).FirstOrDefault();
+
+		StateHasChanged();
+
+		dbListener.DbEventHandler += async (o, e) =>
+		{
+			if (e.Data == "machine_status_update")
+			{
+				machine_Status = (await dbhelper.Fetch<Machine_Status>("SELECT * FROM machine_status WHERE mach_id =1; ")).FirstOrDefault();
+			}
+
+			await InvokeAsync(() => StateHasChanged());
+		};
+
+		Thread Listen = new Thread(new ThreadStart(dbListener.BackgroundService));
+
+		Listen.Start();
+	}
+
+    /*
+     *  [CascadingParameter(Name = "MainLayout")]
+    public MainLayout mainLayout { get; set; }
+
+    protected override void OnParametersSet()
+        {
+    StateHasChanged();
+    }
+    */
+   
+}
+
+

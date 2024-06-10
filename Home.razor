@@ -1,0 +1,84 @@
+﻿@page "/"
+@inject IDBHelper dbhelper
+
+@using Npgsql 
+@using PumpDashboard.Components.Layout
+
+<PageTitle>Home</PageTitle>
+
+<MudPaper Class="pa-4">
+	<MudTable Items="volume_Lists" Class="table">
+		<HeaderContent>
+			<MudTh>Volume</MudTh>
+			<MudTh>Total Volume</MudTh>
+			<MudTh>Time Stamp</MudTh>
+		</HeaderContent>
+		<RowTemplate>
+			<MudTd DataLabel="Volume">@context.Volume</MudTd>
+			<MudTd DataLabel="Total Volume">@context.Total_Volume</MudTd>
+			<MudTd DataLabel="Time Stamp">@context.Date_Time.AddHours(8)</MudTd>
+		</RowTemplate>
+	</MudTable>
+</MudPaper>
+
+<style>
+	.table {
+		width: 100%;
+		border-collapse: collapse;
+	}
+
+	.table-header {
+		background-color: #f2f2f2;
+		padding: 10px;
+		font-weight: bold;
+	}
+
+	.table tr:nth-child(even) {
+		background-color: #f2f2f2;
+	}
+
+	.table tr:hover {
+		background-color: #ddd;
+	}
+
+	.table td {
+		padding: 10px;
+	}
+</style>
+
+@code{
+	[CascadingParameter(Name = "MainLayout")]
+	public MainLayout mainLayout { get; set; }
+
+	List<Volume_List> volume_Lists = new();
+	DbListener dbListener = new();
+	Machine_Status machine_Status = new();
+
+	protected override async Task OnInitializedAsync()
+	{
+		volume_Lists = await dbhelper.Fetch<Volume_List>("SELECT * FROM volume_list; ");
+		machine_Status = (await dbhelper.Fetch<Machine_Status>("SELECT * FROM machine_status WHERE mach_id =1; ")).FirstOrDefault();
+
+		mainLayout.Is_Running = machine_Status.Is_Running;
+
+		StateHasChanged();
+
+		dbListener.DbEventHandler += async (o, e) =>
+		{
+			if (e.Data == "pump_list_update")
+				volume_Lists = await dbhelper.Fetch<Volume_List>("SELECT * FROM volume_list; ");
+
+			if (e.Data == "machine_status_update")
+			{
+				machine_Status = (await dbhelper.Fetch<Machine_Status>("SELECT * FROM machine_status WHERE mach_id =1; ")).FirstOrDefault();
+				mainLayout.Is_Running = machine_Status.Is_Running;
+			}
+				
+			await InvokeAsync(() => StateHasChanged());
+		};
+
+		Thread Listen = new Thread(new ThreadStart(dbListener.BackgroundService));
+
+		Listen.Start();
+	}
+}
